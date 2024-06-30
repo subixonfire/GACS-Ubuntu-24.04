@@ -1,9 +1,5 @@
 #!/bin/bash
 
-# Install dos2unix and convert the script to Unix format
-sudo apt-get install -y dos2unix
-dos2unix $0
-
 # Color definitions
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -46,17 +42,17 @@ run_command() {
 
 # Print banner
 print_banner() {
-	echo -e "${BLUE}${BOLD}"
-	echo "   ____    _    ____ ____     ____            _       _   "
-	echo "  / ___|  / \  / ___/ ___|   / ___|  ___ _ __(_)_ __ | |_ "
-	echo " | |  _  / _ \| |   \___ \   \___ \ / __| '__| | '_ \| __|"
-	echo " | |_| |/ ___ \ |___ ___) |   ___) | (__| |  | | |_) | |_ "
-	echo "  \____/_/   \_\____|____/   |____/ \___|_|  |_| .__/ \__|"
-	echo "                                               |_|        "
-	echo ""
-	echo "                  --- Ubuntu 22.04 ---"
-	echo "                  --- By Mostech ---"
-	echo -e "${NC}"
+    echo -e "${BLUE}${BOLD}"
+    echo "   ____    _    ____ ____     ____            _       _   "
+    echo "  / ___|  / \  / ___/ ___|   / ___|  ___ _ __(_)_ __ | |_ "
+    echo " | |  _  / _ \| |   \___ \   \___ \ / __| '__| | '_ \| __|"
+    echo " | |_| |/ ___ \ |___ ___) |   ___) | (__| |  | | |_) | |_ "
+    echo "  \____/_/   \_\____|____/   |____/ \___|_|  |_| .__/ \__|"
+    echo "                                               |_|        "
+    echo ""
+    echo "                  --- Ubuntu 22.04 ---"
+    echo "                  --- By Mostech ---"
+    echo -e "${NC}"
 }
 
 # Check for root access
