@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# Install dos2unix and convert the script to Unix format
+sudo apt-get install -y dos2unix
+dos2unix $0
+
 # Color definitions
 RED='\033[0;31m'
 GREEN='\033[0;32m'
