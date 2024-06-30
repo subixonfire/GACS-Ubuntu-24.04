@@ -1,173 +1,122 @@
 #!/bin/bash
 
-# Color definitions
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-MAGENTA='\033[0;35m'
-CYAN='\033[0;36m'
-BOLD='\033[1m'
-NC='\033[0m' # No Color
+# Cek apakah user memiliki akses root
+if [ "$EUID" -ne 0 ]; then
+    echo "Error: Anda harus menjalankan script ini sebagai root."
+    exit 1
+fi
 
-# Function to display spinner
-spinner() {
-    local pid=$1
-    local delay=0.1
-    local spinstr='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
-    while [ "$(ps a | awk '{print $1}' | grep $pid)" ]; do
-        local temp=${spinstr#?}
-        printf "${CYAN} [%c]  ${NC}" "$spinstr"
-        local spinstr=$temp${spinstr%"$temp"}
+# Cek distribusi dan versi Ubuntu
+if ! lsb_release -d | grep -q "Ubuntu 22.04"; then
+    echo "Error: Script ini hanya mendukung Ubuntu 22.04 Jammy."
+    exit 1
+fi
+
+# Menjalankan perintah dengan output informatif dan loading animation
+function run_command {
+    echo -n "$(tput bold)$1...$(tput sgr0)"
+    ($2) &> /dev/null &
+    pid=$!
+    delay=0.75
+    spin='-\|/'
+    i=0
+    while kill -0 $pid &>/dev/null
+    do
+        i=$(( (i+1) % 4 ))
+        printf "\r$(tput bold)$(tput setaf 6)[ %c ] $(tput sgr0)%s" "${spin:$i:1}" "$1..."
         sleep $delay
-        printf "\b\b\b\b\b\b"
     done
-    printf "    \b\b\b\b"
-}
-
-# Function to run command with progress
-run_command() {
-    local cmd="$1"
-    local msg="$2"
-    printf "${YELLOW}%-50s${NC}" "$msg..."
-    eval "$cmd" > /dev/null 2>&1 &
-    spinner $!
-    if [ $? -eq 0 ]; then
-        echo -e "${GREEN}Done${NC}"
+    wait $pid
+    exit_status=$?
+    if [ $exit_status -eq 0 ]; then
+        echo -e "\r$(tput bold)$(tput setaf 2)[ ✔ ] $(tput sgr0)$1... $(tput setaf 2)Selesai$(tput sgr0)"
     else
-        echo -e "${RED}Failed${NC}"
+        echo -e "\r$(tput bold)$(tput setaf 1)[ ✘ ] $(tput sgr0)$1... $(tput setaf 1)Gagal$(tput sgr0)"
         exit 1
     fi
 }
 
-# Print banner
-print_banner() {
-    echo -e "${BLUE}${BOLD}"
-    echo "   ____    _    ____ ____     ____            _       _   "
-    echo "  / ___|  / \  / ___/ ___|   / ___|  ___ _ __(_)_ __ | |_ "
-    echo " | |  _  / _ \| |   \___ \   \___ \ / __| '__| | '_ \| __|"
-    echo " | |_| |/ ___ \ |___ ___) |   ___) | (__| |  | | |_) | |_ "
-    echo "  \____/_/   \_\____|____/   |____/ \___|_|  |_| .__/ \__|"
-    echo "                                               |_|        "
-    echo ""
-    echo "                  --- Ubuntu 22.04 ---"
-    echo "                  --- By Mostech ---"
-    echo -e "${NC}"
-}
+echo "$(tput bold)$(tput setaf 4)=== Memulai instalasi dan konfigurasi GenieACS ===$(tput sgr0)"
 
-# Check for root access
-if [ "$EUID" -ne 0 ]; then
-    echo -e "${RED}This script must be run as root${NC}"
-    exit 1
-fi
+# Menjalankan update
+run_command "Update apt-get" "sudo apt-get update -y"
 
-# Check Ubuntu version
-if [ "$(lsb_release -cs)" != "jammy" ]; then
-    echo -e "${RED}This script only supports Ubuntu 22.04 (Jammy)${NC}"
-    exit 1
-fi
+# Menghapus pop up daemons using outdated libraries
+run_command "Update needrestart.conf" "sudo sed -i 's/#\$nrconf{restart} = '\"'i'\"';/\$nrconf{restart} = '\"'a'\"';/g' /etc/needrestart/needrestart.conf"
 
-# Print banner
-print_banner
+# Instalasi nodejs
+run_command "Instalasi Node.js" "sudo apt install -y nodejs"
 
-# Main installation process
-total_steps=25
-current_step=0
+# Instalasi npm
+run_command "Instalasi npm" "sudo apt install -y npm"
 
-echo -e "\n${MAGENTA}${BOLD}Starting GenieACS Installation Process${NC}\n"
+# Unduh dan instalasi libssl
+run_command "Instalasi libssl" "wget http://archive.ubuntu.com/ubuntu/pool/main/o/openssl/libssl1.1_1.1.0g-2ubuntu4_amd64.deb && sudo dpkg -i libssl1.1_1.1.0g-2ubuntu4_amd64.deb"
 
-run_command "apt-get update -y" "Updating system ($(( ++current_step ))/$total_steps)"
+# Menambahkan key MongoDB
+run_command "Menambahkan key MongoDB" "curl -fsSL https://www.mongodb.org/static/pgp/server-4.4.asc | sudo apt-key add -"
 
-run_command "sed -i 's/#\$nrconf{restart} = '"'"'i'"'"';/\$nrconf{restart} = '"'"'a'"'"';/g' /etc/needrestart/needrestart.conf" "Configuring needrestart ($(( ++current_step ))/$total_steps)"
+# Menambahkan repository MongoDB
+run_command "Menambahkan repository MongoDB" "echo 'deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu focal/mongodb-org/4.4 multiverse' | sudo tee /etc/apt/sources.list.d/mongodb-org-4.4.list"
 
-run_command "apt install -y nodejs" "Installing NodeJS ($(( ++current_step ))/$total_steps)"
+# Update apt-get (sekali lagi setelah menambahkan repository)
+run_command "Update apt-get" "sudo apt-get update -y"
 
-run_command "apt install -y npm" "Installing NPM ($(( ++current_step ))/$total_steps)"
+# Instalasi MongoDB
+run_command "Instalasi MongoDB" "sudo apt-get install mongodb-org -y"
 
-run_command "wget http://archive.ubuntu.com/ubuntu/pool/main/o/openssl/libssl1.1_1.1.0g-2ubuntu4_amd64.deb && dpkg -i libssl1.1_1.1.0g-2ubuntu4_amd64.deb" "Installing libssl ($(( ++current_step ))/$total_steps)"
+# Melakukan upgrade
+run_command "Melakukan upgrade" "sudo apt-get upgrade -y"
 
-run_command "curl -fsSL https://www.mongodb.org/static/pgp/server-4.4.asc | apt-key add -" "Adding MongoDB key ($(( ++current_step ))/$total_steps)"
+# Start MongoDB service
+run_command "Start MongoDB" "sudo systemctl start mongod"
 
-run_command "echo 'deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu focal/mongodb-org/4.4 multiverse' | tee /etc/apt/sources.list.d/mongodb-org-4.4.list" "Adding MongoDB repository ($(( ++current_step ))/$total_steps)"
+# Enable MongoDB service
+run_command "Enable MongoDB" "sudo systemctl enable mongod"
 
-run_command "apt-get update -y" "Updating package list ($(( ++current_step ))/$total_steps)"
+# Instalasi GenieACS via npm
+run_command "Instalasi GenieACS" "sudo npm install -g genieacs@1.2.13"
 
-run_command "apt-get install mongodb-org -y" "Installing MongoDB ($(( ++current_step ))/$total_steps)"
+# Membuat user untuk GenieACS daemons
+run_command "Membuat user genieacs" "sudo useradd --system --no-create-home --user-group genieacs"
 
-run_command "apt-get upgrade -y" "Upgrading system ($(( ++current_step ))/$total_steps)"
+# Membuat folder untuk extensions & environment
+run_command "Membuat folder /opt/genieacs" "sudo mkdir -p /opt/genieacs/ext"
+run_command "Menetapkan kepemilikan folder /opt/genieacs" "sudo chown genieacs:genieacs /opt/genieacs/ext"
 
-run_command "systemctl start mongod" "Starting MongoDB service ($(( ++current_step ))/$total_steps)"
+# Menulis konfigurasi environment GenieACS
+echo -e "GENIEACS_CWMP_ACCESS_LOG_FILE=/var/log/genieacs/genieacs-cwmp-access.log\nGENIEACS_NBI_ACCESS_LOG_FILE=/var/log/genieacs/genieacs-nbi-access.log\nGENIEACS_FS_ACCESS_LOG_FILE=/var/log/genieacs/genieacs-fs-access.log\nGENIEACS_UI_ACCESS_LOG_FILE=/var/log/genieacs/genieacs-ui-access.log\nGENIEACS_DEBUG_FILE=/var/log/genieacs/genieacs-debug.yaml\nNODE_OPTIONS=--enable-source-maps\nGENIEACS_EXT_DIR=/opt/genieacs/ext" | sudo tee /opt/genieacs/genieacs.env > /dev/null
 
-run_command "systemctl enable mongod" "Enabling MongoDB service ($(( ++current_step ))/$total_steps)"
+# Membuat JWT secret
+sudo node -e "console.log(\"GENIEACS_UI_JWT_SECRET=\" + require('crypto').randomBytes(128).toString('hex'))" >> /opt/genieacs/genieacs.env
 
-run_command "npm install -g genieacs@1.2.13" "Installing GenieACS ($(( ++current_step ))/$total_steps)"
+# Menetapkan kepemilikan dan hak akses pada file genieacs.env
+run_command "Menetapkan kepemilikan pada genieacs.env" "sudo chown genieacs:genieacs /opt/genieacs/genieacs.env"
+run_command "Menetapkan hak akses pada genieacs.env" "sudo chmod 600 /opt/genieacs/genieacs.env"
 
-run_command "useradd --system --no-create-home --user-group genieacs" "Creating GenieACS user ($(( ++current_step ))/$total_steps)"
+# Membuat folder log dan menetapkan kepemilikan
+run_command "Membuat folder log /var/log/genieacs" "sudo mkdir -p /var/log/genieacs"
+run_command "Menetapkan kepemilikan pada /var/log/genieacs" "sudo chown genieacs:genieacs /var/log/genieacs"
 
-run_command "mkdir -p /opt/genieacs/ext && chown genieacs:genieacs /opt/genieacs/ext" "Creating GenieACS directories ($(( ++current_step ))/$total_steps)"
+# Konfigurasi rotasi log menggunakan logrotate
+echo -e "/var/log/genieacs/*.log /var/log/genieacs/*.yaml {\n    daily\n    rotate 30\n    compress\n    delaycompress\n    dateext\n}" | sudo tee /etc/logrotate.d/genieacs > /dev/null
 
-# Create genieacs.env file
-cat << EOF > /opt/genieacs/genieacs.env
-GENIEACS_CWMP_ACCESS_LOG_FILE=/var/log/genieacs/genieacs-cwmp-access.log
-GENIEACS_NBI_ACCESS_LOG_FILE=/var/log/genieacs/genieacs-nbi-access.log
-GENIEACS_FS_ACCESS_LOG_FILE=/var/log/genieacs/genieacs-fs-access.log
-GENIEACS_UI_ACCESS_LOG_FILE=/var/log/genieacs/genieacs-ui-access.log
-GENIEACS_DEBUG_FILE=/var/log/genieacs/genieacs-debug.yaml
-NODE_OPTIONS=--enable-source-maps
-GENIEACS_EXT_DIR=/opt/genieacs/ext
-EOF
-echo -e "${YELLOW}Creating genieacs.env file ($(( ++current_step ))/$total_steps)${NC}... ${GREEN}Done${NC}"
+# Konfigurasi systemd service files for GenieACS
+genieacs_services=("genieacs-cwmp" "genieacs-nbi" "genieacs-fs" "genieacs-ui")
+service_files=("genieacs-cwmp.service" "genieacs-nbi.service" "genieacs-fs.service" "genieacs-ui.service")
 
-run_command "node -e \"console.log('GENIEACS_UI_JWT_SECRET=' + require('crypto').randomBytes(128).toString('hex'))\" >> /opt/genieacs/genieacs.env" "Generating JWT secret ($(( ++current_step ))/$total_steps)"
-
-run_command "chown genieacs:genieacs /opt/genieacs/genieacs.env && chmod 600 /opt/genieacs/genieacs.env" "Setting genieacs.env permissions ($(( ++current_step ))/$total_steps)"
-
-run_command "mkdir /var/log/genieacs && chown genieacs:genieacs /var/log/genieacs" "Creating log directory ($(( ++current_step ))/$total_steps)"
-
-# Create systemd service files
-for service in cwmp nbi fs ui; do
-    cat << EOF > /etc/systemd/system/genieacs-$service.service
-[Unit]
-Description=GenieACS $service
-After=network.target
-
-[Service]
-User=genieacs
-EnvironmentFile=/opt/genieacs/genieacs.env
-ExecStart=/usr/local/bin/genieacs-$service
-
-[Install]
-WantedBy=default.target
-EOF
-    echo -e "${YELLOW}Creating genieacs-$service service file ($(( ++current_step ))/$total_steps)${NC}... ${GREEN}Done${NC}"
+for ((i=0; i<${#genieacs_services[@]}; i++)); do
+    service_name="${genieacs_services[i]}"
+    service_file="${service_files[i]}"
+    echo -e "[Unit]\nDescription=GenieACS $service_name\nAfter=network.target\n\n[Service]\nUser=genieacs\nEnvironmentFile=/opt/genieacs/genieacs.env\nExecStart=/usr/local/bin/$service_name\n\n[Install]\nWantedBy=default.target" | sudo tee "/etc/systemd/system/$service_file" > /dev/null
+    run_command "Membuat file systemd untuk $service_name" "sudo systemctl daemon-reload"
+    run_command "Mengaktifkan dan menjalankan $service_name" "sudo systemctl enable $service_name && sudo systemctl start $service_name"
 done
 
-# Create logrotate configuration
-cat << EOF > /etc/logrotate.d/genieacs
-/var/log/genieacs/*.log /var/log/genieacs/*.yaml {
-    daily
-    rotate 30
-    compress
-    delaycompress
-    dateext
-}
-EOF
-echo -e "${YELLOW}Creating logrotate configuration ($(( ++current_step ))/$total_steps)${NC}... ${GREEN}Done${NC}"
-
-# Enable and start services
-for service in cwmp nbi fs ui; do
-    run_command "systemctl enable genieacs-$service && systemctl start genieacs-$service" "Enabling and starting genieacs-$service ($(( ++current_step ))/$total_steps)"
+# Menampilkan status services
+services=("mongod" "genieacs-cwmp" "genieacs-nbi" "genieacs-fs" "genieacs-ui")
+for service in "${services[@]}"; do
+    run_command "Pengecekan status $service" "sudo systemctl status $service"
 done
 
-# Check services status
-echo -e "\n${MAGENTA}${BOLD}Checking services status:${NC}"
-for service in mongod genieacs-cwmp genieacs-nbi genieacs-fs genieacs-ui; do
-    status=$(systemctl is-active $service)
-    if [ "$status" = "active" ]; then
-        echo -e "${GREEN}✔ $service is running${NC}"
-    else
-        echo -e "${RED}✘ $service is not running${NC}"
-    fi
-done
-
-echo -e "\n${GREEN}${BOLD}Script execution completed successfully!${NC}"
+echo "$(tput bold)$(tput setaf 2)=== Instalasi dan konfigurasi GenieACS selesai ===$(tput sgr0)"
