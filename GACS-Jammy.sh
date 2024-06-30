@@ -42,7 +42,7 @@ echo "$(tput bold)$(tput setaf 4)=== Memulai instalasi dan konfigurasi GenieACS 
 run_command "Update apt-get" "sudo apt-get update -y"
 
 # Menghapus pop up daemons using outdated libraries
-run_command "Update needrestart.conf" "sudo sed -i 's/#\$nrconf{restart} = '\"'i'\"';/\$nrconf{restart} = '\"'a'\"';/g' /etc/needrestart/needrestart.conf"
+run_command "Update needrestart.conf" "sudo sed -i 's/#\$nrconf{restart} = '"'"'i'"'"';/\$nrconf{restart} = '"'"'a'"'"';/g' /etc/needrestart/needrestart.conf"
 
 # Instalasi nodejs
 run_command "Instalasi Node.js" "sudo apt install -y nodejs"
