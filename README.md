@@ -9,4 +9,6 @@ This is autoinstall GenieACS For ubuntu version 22.04 (Jammy)
 - sudo apt-get install dos2unix
 - dos2unix GACS-Jammy.sh
 - bash GACS-Jammy.sh
-  
+
+# Full Tutorial
+- https://youtu.be/p_UNuq0rfg0
