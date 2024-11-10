@@ -12,15 +12,15 @@ git clone https://github.com/subixonfire/GACS-Ubuntu-24.04
 cd GACS-Ubuntu-24.04
 ```
 ```
-chmod +x GACS-Jammy.sh
+chmod +x GACS.sh
 ```
 ```
 sudo apt-get install dos2unix
 ```
 ```
-dos2unix GACS-Jammy.sh
+dos2unix GACS.sh
 ```
 ```
-bash GACS-Jammy.sh
+bash GACS.sh
 ```
 
