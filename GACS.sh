@@ -62,7 +62,7 @@ if [ "$EUID" -ne 0 ]; then
 fi
 
 # Check Ubuntu version
-if [ "$(lsb_release -cs)" != "Noble" ]; then
+if [ "$(lsb_release -cs)" != "noble" ]; then
     echo -e "${RED}This script only supports Ubuntu 24.04 (Noble)${NC}"
     exit 1
 fi
